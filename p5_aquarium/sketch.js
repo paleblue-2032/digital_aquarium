@@ -11,8 +11,7 @@ let targetCursor = { x: 0, y: 0, isVisible: false };
 let displayCursor = { x: 0, y: 0 };
 
 const VIRTUAL_DAY_DURATION = 10 * 60 * 1000; // 10分で1日
-// ★★★ 表示時間を 300秒 (5分) に変更 ★★★
-const FISH_LIFESPAN = 300; // スキャンされた魚の寿命（秒）
+const FISH_LIFESPAN = 180; // スキャンされた魚の寿命（秒）
 
 let port; // シリアルポート
 let reader;
@@ -37,7 +36,9 @@ function preload() {
             let img = loadImage(DEFAULT_FISH_FOLDER + fileName);
             defaultFishImages.push(img);
             console.log(`デフォルト魚画像読み込み: ${fileName}`);
-        } catch (e) { console.error(`デフォルト魚画像の読み込み失敗: ${fileName}`, e); }
+        } catch (e) {
+            console.error(`デフォルト魚画像の読み込み失敗: ${fileName}`, e);
+        }
     }
     
     try {
@@ -50,33 +51,37 @@ function preload() {
     }
 }
 
-
+// === p5.js 初期設定 ===
 function setup() {
     createCanvas(windowWidth, windowHeight);
-    displayCursor.x = width / 2;
+    displayCursor.x = width / 2; // 表示カーソルの初期位置
     displayCursor.y = height / 2;
 
-    let connectButton = select('#connectButton');
-    connectButton.mousePressed(connectSerial);
+    let connectButton = select('#connectButton'); // HTMLのボタンを取得
+    connectButton.mousePressed(connectSerial); // ボタンが押されたらconnectSerial関数を実行
 
-
+    // ★★★ デフォルト魚を生成 (ランダムではなく順番に) ★★★
     if (!defaultFishInitialized && defaultFishImages.length > 0) {
         let count = min(NUM_DEFAULT_FISH, defaultFishImages.length);
         for (let i = 0; i < count; i++) {
             let img = defaultFishImages[i];
              if (img.width > 0 && img.height > 0) {
                 allFish.push(new Fish(img, true)); // isDefault=trueで生成
-            } else { console.warn(`デフォルト魚画像 ${DEFAULT_FISH_FILES[i]} が無効`); }
+            } else {
+                 console.warn(`デフォルト魚画像 ${DEFAULT_FISH_FILES[i]} が有効ではありません。スキップします。`);
+            }
         }
-        console.log(`${allFish.filter(f => f.isDefault).length}匹のデフォルト魚を生成`);
+        console.log(`${allFish.filter(f => f.isDefault).length}匹のデフォルト魚を生成しました。`);
         defaultFishInitialized = true;
     } else if (!defaultFishInitialized) {
-        console.warn("デフォルト魚画像なし"); defaultFishInitialized = true;
+        console.warn("デフォルト魚の画像が見つかりませんでした。");
+        defaultFishInitialized = true;
     }
-    checkNewFish();
+
+    checkNewFish(); // スキャン魚の初期チェック
 }
 
-
+// === シリアルポートに接続する関数 ===
 async function connectSerial() {
     try {
         port = await navigator.serial.requestPort();
@@ -93,6 +98,7 @@ async function connectSerial() {
 }
 
 
+// === シリアルデータを非同期で読み続ける関数 ===
 async function readSerialData() {
     while (port && port.readable) {
         reader = port.readable.getReader();
@@ -115,8 +121,13 @@ async function readSerialData() {
     console.log("シリアルポートが閉じられました。");
 }
 
-
+// === 受信データを解釈して処理する関数 ===
 function parseSerialData(line) {
+    // ★★★ 音のスリープ解除 ★★★
+    if (getAudioContext().state !== 'running') {
+        getAudioContext().resume();
+    }
+
     const data = line.split(',');
      if (data.length < 4) return;
     const dataType = data[0];
@@ -137,91 +148,78 @@ function parseSerialData(line) {
 }
 
 
+// === p5.js メインループ ===
 function draw() {
     drawAquariumBackground();
 
-    
-    if (frameCount % 20 === 0) { bubbles.push(new Bubble()); }
-    for (let i = bubbles.length - 1; i >= 0; i--) { bubbles[i].update(); bubbles[i].display(); if (bubbles[i].isFinished()) bubbles.splice(i, 1); }
-    
-    // 照準カーソルのスムージング
+    // 泡
+    if (frameCount % 15 === 0) bubbles.push(new Bubble());
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+        bubbles[i].update(); bubbles[i].display();
+        if (bubbles[i].isFinished()) bubbles.splice(i, 1);
+    }
+
+    // 照準カーソル
     displayCursor.x += (targetCursor.x - displayCursor.x) * 0.3;
     displayCursor.y += (targetCursor.y - displayCursor.y) * 0.3;
-    
-    // エサ粒
-    for (let i = foodPellets.length - 1; i >= 0; i--) { foodPellets[i].update(); foodPellets[i].display(); if (foodPellets[i].isFinished()) foodPellets.splice(i, 1); }
-    
-    // 波紋
-    for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].update(); ripples[i].display(); if (ripples[i].isFinished()) ripples.splice(i, 1); }
-    
-    // 魚
-    for (let i = allFish.length - 1; i >= 0; i--) { let fish = allFish[i]; fish.applyBehaviors(allFish); fish.update(); fish.checkCollisionWithBubbles(bubbles); fish.display(); fish.checkBounds(); if (!fish.isDefault && fish.isDead()) allFish.splice(i, 1); }
-    
-    // 照準カーソルの描画 (一番手前に)
     if (targetCursor.isVisible) {
-        let x = displayCursor.x;
-        let y = displayCursor.y;
-        let breath = sin(frameCount * 0.1) * 3 + 20; 
-        fill(0, 0, 0, 100); noStroke();
-        ellipse(x, y, breath + 2, breath + 2);
-        fill(255, 255, 255, 200);
-        ellipse(x, y, breath, breath);
-        fill(255, 0, 0, 220);
-        ellipse(x, y, 6, 6);
+        let breath = sin(frameCount * 0.1) * 5 + 30;
+        fill(255, 255, 255, 80); noStroke();
+        ellipse(displayCursor.x, displayCursor.y, breath, breath);
+        fill(255, 255, 255, 180);
+        ellipse(displayCursor.x, displayCursor.y, 8, 8);
+    }
+
+    // エサ粒
+    for (let i = foodPellets.length - 1; i >= 0; i--) {
+        foodPellets[i].update(); foodPellets[i].display();
+        if (foodPellets[i].isFinished()) foodPellets.splice(i, 1);
+    }
+
+    // 波紋
+    for (let i = ripples.length - 1; i >= 0; i--) {
+        ripples[i].update(); ripples[i].display();
+        if (ripples[i].isFinished()) ripples.splice(i, 1);
+    }
+
+    // 魚
+    for (let i = allFish.length - 1; i >= 0; i--) {
+        let fish = allFish[i];
+        fish.applyBehaviors(allFish);
+        fish.update();
+        fish.checkCollisionWithBubbles(bubbles);
+        fish.display();
+        fish.checkBounds();
+        if (!fish.isDefault && fish.isDead()) {
+             allFish.splice(i, 1);
+        }
     }
 
     if (millis() - lastCheckTime > 3000) checkNewFish();
 }
 
-
 // === 背景描画 ===
-// ★★★ 滑らかな時間経過になるよう修正 ★★★
 function drawAquariumBackground() {
     let elapsedTime = millis() % VIRTUAL_DAY_DURATION;
     let virtualHour = map(elapsedTime, 0, VIRTUAL_DAY_DURATION, 0, 24);
-
-    // 4つのカラーキーフレームを定義
-    const nightTop = color('#01579b');    // 深夜(上)
-    const nightBottom = color('#01579b'); // 深夜(下)
-    const dawnTop = color('#b3e5fc');     // 日の出(上)
-    const dawnBottom = color('#03a9f4');  // 日の出(下)
-    const dayTop = color('#b3e5fc');      // 昼(上)
-    const dayBottom = color('#03a9f4');   // 昼(下)
-    const duskTop = color('#03a9f4');     // 日の入り(上)
-    const duskBottom = color('#01579b');  // 日の入り(下)
-
-    let currentTopColor;
-    let currentBottomColor;
-
-    // 仮想時間に基づいて、4つの状態間を滑らかに補間
-    if (virtualHour < 6) { // 深夜 -> 日の出 (0時-6時)
-        let amt = map(virtualHour, 0, 6, 0, 1);
-        currentTopColor = lerpColor(nightTop, dawnTop, amt);
-        currentBottomColor = lerpColor(nightBottom, dawnBottom, amt);
-    } else if (virtualHour < 12) { // 日の出 -> 昼 (6時-12時)
-        let amt = map(virtualHour, 6, 12, 0, 1);
-        currentTopColor = lerpColor(dawnTop, dayTop, amt);
-        currentBottomColor = lerpColor(dawnBottom, dayBottom, amt);
-    } else if (virtualHour < 18) { // 昼 -> 日の入り (12時-18時)
-        let amt = map(virtualHour, 12, 18, 0, 1);
-        currentTopColor = lerpColor(dayTop, duskTop, amt);
-        currentBottomColor = lerpColor(dayBottom, duskBottom, amt);
-    } else { // 日の入り -> 深夜 (18時-24時)
-        let amt = map(virtualHour, 18, 24, 0, 1);
-        currentTopColor = lerpColor(duskTop, nightTop, amt);
-        currentBottomColor = lerpColor(duskBottom, nightBottom, amt);
+    let fromColor, toColor, ratio;
+    if (virtualHour >= 5 && virtualHour < 18) {
+        fromColor = color('#b3e5fc'); toColor = color('#03a9f4');
+        ratio = map(virtualHour, 5, 18, 0, 1);
+    } else {
+        fromColor = color('#03a9f4'); toColor = color('#01579b');
+        if (virtualHour >= 18) ratio = map(virtualHour, 18, 29, 0, 1);
+        else ratio = map(virtualHour, -5, 5, 0, 1);
     }
-
-    // 縦グラデーションを描画
     noStroke();
     for (let i = 0; i <= height; i++) {
         let inter = map(i, 0, height, 0, 1);
-        let c = lerpColor(currentTopColor, currentBottomColor, inter);
+        let c = lerpColor(fromColor, toColor, inter);
         fill(c); rect(0, i, width, 1);
     }
 }
 
-
+// === エサやり関数 ===
 function feedFish(x, y) {
     let numPellets = 10;
     for (let i = 0; i < numPellets; i++) {
@@ -230,7 +228,7 @@ function feedFish(x, y) {
     ripples.push(new Ripple(x, y));
 }
 
-
+// === マウスクリック無効化 ===
 function mousePressed() {
     if (getAudioContext().state !== 'running') {
         getAudioContext().resume().then(() => { console.log("AudioContext resumed."); });
@@ -240,7 +238,7 @@ function mousePressed() {
     else { console.log("エサやりはスティックで操作してください。"); }
 }
 
-
+// === 新しい魚チェック ===
 function checkNewFish() {
     try {
         loadJSON('../processed_images/fish_list.json?t=' + new Date().getTime(), (fishList) => {
@@ -363,10 +361,15 @@ class Bubble {
     constructor(){
         this.x=random(width); this.y=height+random(10,100);
         this.r=random(10,50); this.speed=random(1,3);
+        
+        // ★★★ 30%の確率で音を鳴らす ★★★
         if (bubbleSound && bubbleSound.isLoaded() && random() < 0.3) {
+            // ★★★ 再生前にAudioContextの起動を試みる ★★★
             if (getAudioContext().state !== 'running') {
                 getAudioContext().resume();
             }
+            
+            // 起動していれば再生
             if (getAudioContext().state === 'running') {
                 let vol = random(0.05, 0.2); let pan = map(this.x, 0, width, -0.8, 0.8);
                 bubbleSound.setVolume(vol); bubbleSound.pan(pan);
