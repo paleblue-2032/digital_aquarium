@@ -1,0 +1,21 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+
+# Nix / direnv
+result
+result-*
+.direnv/
+
+# Local working directories (never committed)
+.commandcode/
+AGENTS.md
+
+# CLI output
+out/

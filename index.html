@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>digital_aquarium | others</title>
+  <meta name="description" content="手で描いた魚をスキャンして泳がせるデジタル水槽" />
+  <meta name="theme-color" content="#0a1a2a" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="stage" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="back" href="../">← others</a>
+    <div class="actions">
+      <button id="mode-btn" class="mode-btn" type="button" title="遊び方を選び直す">マウス操作</button>
+      <button id="btn-add" class="icon-btn" type="button" title="魚を追加（画像を読み込む）" aria-label="魚を追加">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+      <button id="btn-scan" class="icon-btn" type="button" hidden title="カメラでスキャン" aria-label="カメラでスキャン">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <circle cx="12" cy="12.5" r="3.2" />
+        </svg>
+      </button>
+      <button id="btn-serial" class="icon-btn" type="button" hidden title="Arduino に接続" aria-label="Arduino に接続">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 2v6M15 2v6" />
+          <path d="M7 8h10v3a5 5 0 0 1-10 0z" />
+          <path d="M12 16v4" />
+        </svg>
+      </button>
+      <button id="btn-sound" class="icon-btn" type="button" title="音の切り替え" aria-label="音の切り替え" aria-pressed="false">
+        <svg class="ic-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4z" />
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+        </svg>
+        <svg class="ic-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 5 6 9H3v6h3l5 4z" />
+          <path d="M22 9l-5 6M17 9l5 6" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <input id="file-input" type="file" accept="image/*" multiple hidden />
+
+  <div id="camera" class="overlay hidden">
+    <div class="camera-box">
+      <video id="cam-video" playsinline muted></video>
+      <canvas id="cam-canvas" hidden></canvas>
+      <div class="camera-actions">
+        <button id="cam-close" class="ghost-btn" type="button">閉じる</button>
+        <button id="cam-shot" class="start-btn" type="button">撮影する</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div class="dialog">
+      <p class="eyebrow">others / digital_aquarium</p>
+      <h1>digital_aquarium</h1>
+      <p class="lead">描いた魚を泳がせる水槽です。遊び方を選んでください。</p>
+      <div class="modes" role="radiogroup" aria-label="遊び方">
+        <button class="mode-card selected" type="button" role="radio" aria-checked="true" data-mode="simple">
+          <span class="mode-name">マウスで遊ぶ</span>
+          <span class="mode-desc">クリックで餌をまきます。手持ちの画像を選んで魚を増やせます。</span>
+        </button>
+        <button class="mode-card" type="button" role="radio" aria-checked="false" data-mode="hardware">
+          <span class="mode-name">Arduino・スキャナーを使う</span>
+          <span class="mode-desc">ジョイスティックで餌やり、カメラで魚をスキャンします。</span>
+        </button>
+      </div>
+      <button id="start" class="start-btn" type="button">はじめる</button>
+      <p class="hint">泡をつつると魚が浮かび上がります。追加した魚はしばらくすると泳ぎ去ります。</p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="lib/p5.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
